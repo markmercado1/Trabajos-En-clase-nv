@@ -7,7 +7,10 @@ package pe.edu.upeu.syscenterlife.gui;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
@@ -22,6 +25,8 @@ import pe.com.syscenterlife.jtablecomp.ButtonsPanel;
 import pe.com.syscenterlife.jtablecomp.ButtonsRenderer;
 import pe.edu.upeu.syscenterlife.modelo.SessionManager;
 import pe.edu.upeu.syscenterlife.modelo.VentCarrito;
+import pe.edu.upeu.syscenterlife.modelo.Venta;
+import pe.edu.upeu.syscenterlife.modelo.VentaDetalle;
 import pe.edu.upeu.syscenterlife.servicio.ClienteService;
 import pe.edu.upeu.syscenterlife.servicio.ProductoService;
 import pe.edu.upeu.syscenterlife.servicio.UsuarioService;
@@ -152,9 +157,9 @@ public class MainVenta extends javax.swing.JPanel {
                 JOptionPane.showMessageDialog(this, "Elimianr: " + o);
             });
             jTable1.setModel(modelo);
-            txtImporte.setText(String.valueOf(impoTotal));
+            txtPVenta.setText(String.valueOf(impoTotal));
             double pv = impoTotal / 1.18;
-            txtPVenta.setText(String.valueOf(Math.round(pv * 100.0) / 100.0));
+            txtImporte.setText(String.valueOf(Math.round(pv * 100.0) / 100.0));
             txtIgv.setText(String.valueOf(Math.round((pv * 0.18) * 100.0) / 100.0));
         } catch (Exception e) {
             System.err.println("No hay datos en carrito:" + e.getMessage());
@@ -166,6 +171,42 @@ public class MainVenta extends javax.swing.JPanel {
         List<ModeloDataAutocomplet> itemsP = daoP.listAutoCompletProducto("");
         System.out.println("Cantiad:" + itemsP.size());
         AutoCompleteTextField.setupAutoComplete(txtProducto, itemsP, "ID");
+
+    }
+
+    public void registrarVenta() {
+        Venta to = new Venta();
+        to.setDniruc(daoCli.buscarCliente(txtDniAutoComplete.getText()));
+        to.setPreciobase(Double.parseDouble(txtImporte.getText()));
+        to.setIgv(Double.parseDouble(txtIgv.getText()));
+        to.setPreciototal(Double.parseDouble(txtPVenta.getText()));
+        to.setIdUsuario(userSer.buscarEntidad(SessionManager.getInstance().getUserId()));
+        to.setSerie("V");
+        to.setTipoDoc("Factura");
+        Locale locale = new Locale("es", "es-PE");
+        LocalDateTime localDate = LocalDateTime.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss", locale);
+        String fechaFormateada = localDate.format(formatter);
+        System.out.println("Fecha:" + fechaFormateada);
+        to.setFechaGener(localDate.parse(fechaFormateada, formatter));
+        to.setNumDoc("00" + to.getIdVenta());
+        Venta idX = daoV.guardarEntidad(to);
+        List<VentCarrito> dd = listarCarrito(txtDniAutoComplete.getText());
+        if (idX.getIdVenta() != 0) {
+            for (VentCarrito car : dd) {
+                VentaDetalle vd = new VentaDetalle();
+                vd.setIdVenta(idX);
+                vd.setIdProducto(daoP.buscarProducto(car.getIdProducto()));
+                vd.setCantidad(car.getCantidad());
+                vd.setDescuento(0);
+                vd.setPu(car.getPunitario());
+                vd.setSubtotal(car.getPtotal());
+                daoVD.guardarEntidad(vd);
+            }
+        }
+        daoC.deleteCarAll(txtDniAutoComplete.getText());
+        listarCarrito(txtDniAutoComplete.getText());
+        daoV.runReport1(Long.parseLong(String.valueOf(idX.getIdVenta())));
     }
 
     @SuppressWarnings("unchecked")
@@ -268,6 +309,7 @@ public class MainVenta extends javax.swing.JPanel {
             }
         });
 
+        jButton2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/img/add-contact-icon.png"))); // NOI18N
         jButton2.setText("ADD");
         jButton2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -292,9 +334,14 @@ public class MainVenta extends javax.swing.JPanel {
             .addGroup(jPanel6Layout.createSequentialGroup()
                 .addGap(44, 44, 44)
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(txtDniAutoComplete, javax.swing.GroupLayout.PREFERRED_SIZE, 111, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel4))
-                .addGap(145, 145, 145)
+                    .addGroup(jPanel6Layout.createSequentialGroup()
+                        .addComponent(jLabel4)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 145, Short.MAX_VALUE))
+                    .addGroup(jPanel6Layout.createSequentialGroup()
+                        .addComponent(txtDniAutoComplete, javax.swing.GroupLayout.PREFERRED_SIZE, 111, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 92, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(10, 10, 10)))
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(txtNombre))
@@ -302,7 +349,7 @@ public class MainVenta extends javax.swing.JPanel {
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(jPanel6Layout.createSequentialGroup()
                         .addComponent(txtDireccion, javax.swing.GroupLayout.PREFERRED_SIZE, 89, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 82, Short.MAX_VALUE)
                         .addComponent(jLabel14)
                         .addGap(31, 31, 31))
                     .addGroup(jPanel6Layout.createSequentialGroup()
@@ -313,11 +360,6 @@ public class MainVenta extends javax.swing.JPanel {
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(textUser))
-            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(jPanel6Layout.createSequentialGroup()
-                    .addGap(222, 222, 222)
-                    .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addContainerGap(790, Short.MAX_VALUE)))
         );
         jPanel6Layout.setVerticalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -340,19 +382,17 @@ public class MainVenta extends javax.swing.JPanel {
                             .addComponent(txtNombre, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(jPanel6Layout.createSequentialGroup()
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addComponent(txtDireccion, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(21, Short.MAX_VALUE))
+                        .addComponent(txtDireccion, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(jPanel6Layout.createSequentialGroup()
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap(27, Short.MAX_VALUE))
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jLabel4)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(txtDniAutoComplete, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(31, 31, 31))
-            .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, jPanel6Layout.createSequentialGroup()
-                    .addContainerGap(39, Short.MAX_VALUE)
-                    .addComponent(jButton2, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addGap(27, 27, 27)))
         );
 
         jPanel1.setBackground(new java.awt.Color(255, 204, 204));
@@ -417,6 +457,7 @@ public class MainVenta extends javax.swing.JPanel {
             }
         });
 
+        btnCarrito.setIcon(new javax.swing.ImageIcon(getClass().getResource("/img/data-add-icon.png"))); // NOI18N
         btnCarrito.setText("ADD");
         btnCarrito.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -454,7 +495,7 @@ public class MainVenta extends javax.swing.JPanel {
                     .addComponent(jLabel8)
                     .addComponent(txtPTotal, javax.swing.GroupLayout.PREFERRED_SIZE, 87, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(66, 66, 66)
-                .addComponent(btnCarrito, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(btnCarrito)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel1Layout.setVerticalGroup(
@@ -558,6 +599,7 @@ public class MainVenta extends javax.swing.JPanel {
             }
         });
 
+        jButton1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/img/shop-cart-add-icon.png"))); // NOI18N
         jButton1.setText("ADD");
         jButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -592,9 +634,9 @@ public class MainVenta extends javax.swing.JPanel {
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel11)
                     .addComponent(txtPVenta, javax.swing.GroupLayout.PREFERRED_SIZE, 81, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(54, 54, 54)
-                .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 67, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(513, Short.MAX_VALUE))
+                .addGap(52, 52, 52)
+                .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -614,9 +656,9 @@ public class MainVenta extends javax.swing.JPanel {
                             .addComponent(txtIgv, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(txtDescuento, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                     .addGroup(jPanel3Layout.createSequentialGroup()
-                        .addGap(29, 29, 29)
+                        .addGap(23, 23, 23)
                         .addComponent(jButton1, javax.swing.GroupLayout.PREFERRED_SIZE, 38, javax.swing.GroupLayout.PREFERRED_SIZE)))
-                .addContainerGap(35, Short.MAX_VALUE))
+                .addContainerGap(37, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
@@ -653,6 +695,9 @@ public class MainVenta extends javax.swing.JPanel {
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
         // TODO add your handling code here:
+        
+        
+        registrarVenta();
     }//GEN-LAST:event_jButton1ActionPerformed
 
     private void txtProductoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtProductoActionPerformed
